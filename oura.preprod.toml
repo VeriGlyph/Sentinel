@@ -1,0 +1,37 @@
+[source]
+type = "N2N"
+address = ["Tcp","preprod-node.play.dev.cardano.org:3001"]
+magic = "preprod"
+
+[source.intersect]
+type = "Point"
+value = [46665557,"3a7118e930d53c37a7e793380606f53cd91e11284b0ada778689332702577cc6"]
+# This point is the block before the first pre-prod publication of a CIP-88 certificate
+
+[[filters]]
+type = "Selection"
+
+[filters.check]
+predicate = "metadata_label_equals"
+argument = "867"
+
+# This sink will simply publish all found metadata entries to stdout (terminal)
+#[sink]
+#type = "Terminal"
+#wrap = true
+
+[sink]
+type = "Webhook"
+url = "http://localhost:8080/webhook/"
+timeout = 30000
+error_policy = "Continue"
+
+# Can be used to provide custom headers for security to the Sentinel installation
+#[sink.headers]
+#"x-auth-token" = "abc123"
+
+[sink.retry_policy]
+max_retries = 30
+backoff_unit = 5000
+backoff_factor = 2
+max_backoff = 100000
