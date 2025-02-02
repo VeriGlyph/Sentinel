@@ -1,0 +1,4 @@
+.idea
+/backend/node_modules
+/indexer/cursor.txt
+/indexer/daemon.toml

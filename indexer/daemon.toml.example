@@ -22,7 +22,7 @@ argument = "867"
 
 [sink]
 type = "Webhook"
-url = "http://localhost:8080/webhook/"
+url = "http://veriglyph-sentinel-backend:8080/webhook/"
 timeout = 30000
 error_policy = "Continue"
 
@@ -35,3 +35,7 @@ max_retries = 30
 backoff_unit = 5000
 backoff_factor = 2
 max_backoff = 100000
+
+[cursor]
+type = "File"
+path = "/indexer/cursor.txt"

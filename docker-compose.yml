@@ -1,0 +1,33 @@
+services:
+
+  # Backend Service
+  veriglyph-sentinel-backend:
+    build: .
+    container_name: veriglyph-sentinel-backend
+    restart: unless-stopped
+    tty: true
+    networks: [ veriglyph-sentinel ]
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "8301:8080"
+
+  # Indexer Service
+  veriglyph-sentinel-indexer:
+    image: ghcr.io/txpipe/oura:latest
+    container_name: veriglyph-sentinel-indexer
+    restart: unless-stopped
+    tty: true
+    networks: [ veriglyph-sentinel ]
+    working_dir: /indexer
+    volumes:
+      - ./indexer:/indexer
+    command: "daemon --config /indexer/daemon.toml"
+    depends_on:
+      - veriglyph-sentinel-backend
+
+networks:
+  veriglyph-sentinel:
+    driver: bridge
