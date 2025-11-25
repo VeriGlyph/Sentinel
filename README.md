@@ -10,5 +10,37 @@ Sentinel is the watcher and validator component of the VeriGlyph system to
 support CIP-88/CIP-151 On-Chain Registration Certificates on the Cardano
 blockchain.
 
-## Installation
+## Requirements
+
+- Docker Engine + Docker Compose Plugin (or Docker Desktop)
+- (Optional) Node.js 20+ and npm if you want to run the API/frontend directly instead of via Docker
+- A Blockfrost project ID for the target network (e.g., preprod/mainnet)
+
+## Quick start (local, Docker)
+
+1. Clone the repo and enter it:
+   ```bash
+   git clone https://github.com/veriglyph/sentinel.git
+   cd sentinel
+   ```
+2. Create a `.env` with your Blockfrost credentials (example for preprod):
+   ```bash
+   cat > .env <<'EOF'
+   BLOCKFROST_PROJECT_ID=your_blockfrost_project_id
+   BLOCKFROST_NETWORK=preprod
+   BLOCKFROST_START_HEIGHT=761976
+   TRAEFIK_ENABLE_TLS=false
+   EOF
+   ```
+   - Leave `TRAEFIK_ENABLE_TLS=false` for local HTTP on port 80. For HTTPS, set `TRAEFIK_ENABLE_TLS=true`, add `DOMAIN` and a real `LE_EMAIL`, and ensure the domain resolves to your machine.
+3. Build and run everything:
+   ```bash
+   docker compose up --build
+   ```
+4. Open the frontend at `http://localhost` (or `https://<DOMAIN>` if TLS is enabled). The API is served under `/api` and `/certificates`.
+
+## Notes
+
+- Postgres data is stored in the `pgdata` named volume. Remove it with `docker volume rm sentinel_pgdata` if you need a clean DB.
+- Services use `restart: unless-stopped` semantics if you add them to `docker-compose.yml`, or simply rerun `docker compose up -d` after a reboot.
 
