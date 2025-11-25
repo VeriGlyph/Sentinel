@@ -1,8 +1,12 @@
-import {readFileSync} from 'fs';
+import { readFileSync } from 'fs';
 import path from 'path';
-import {InMemoryCertificateStore} from '../src/services/certificate-service';
-import {ingestProviderEvents} from '../src/services/certificate-ingestion';
-import {ProviderEvent} from '../src/providers/provider';
+import cbor from 'cbor';
+import nacl from 'tweetnacl';
+import { InMemoryCertificateStore } from '../src/services/certificate-service';
+import { ingestProviderEvents } from '../src/services/certificate-ingestion';
+import { ProviderEvent } from '../src/providers/provider';
+import { getHash, normalizeForSignature } from '../src/lib/cip88';
+import { hexToBytes } from '../src/lib/hex';
 
 function loadJson(relPath: string) {
     const abs = path.join(__dirname, '..', relPath);
@@ -114,5 +118,74 @@ describe('ingestProviderEvents', () => {
         expect(results[0].ok).toBe(false);
         const records = await store.getCertificates({txHash: 'tx2'});
         expect(records[0].status).toBe('invalid');
+    });
+
+    const buildSignedNativeScriptEvent = (opts?: { policyScripts?: string[]; policyId?: string; witnessKey?: Uint8Array }) => {
+        const keyPair = nacl.sign.keyPair();
+        const pubKey = opts?.witnessKey ?? keyPair.publicKey;
+        const pubKeyHex = Buffer.from(pubKey).toString('hex');
+        const pubKeyHash = getHash(pubKeyHex, 28);
+        const scriptCbor = cbor.encode([0, Buffer.from(pubKeyHash, 'hex')]).toString('hex');
+        const policyId = opts?.policyId ?? getHash(scriptCbor, 28);
+        const payload = {
+            1: {
+                1: [0, `0x${policyId}`, opts?.policyScripts ?? [`0x${scriptCbor}`]],
+                2: [],
+                3: [0],
+                4: 1,
+            },
+            2: [[`0x${pubKeyHex}`, '']], // signature placeholder for now
+        };
+        const messageHex = normalizeForSignature(payload[1], false);
+        const signature = nacl.sign.detached(hexToBytes(messageHex), keyPair.secretKey);
+        payload[2][0][1] = `0x${Buffer.from(signature).toString('hex')}`;
+
+        const event: ProviderEvent = {
+            txHash: 'native-script',
+            blockHeight: 123,
+            slot: 456,
+            provider: 'test',
+            metadataKey: 867,
+            payload,
+            observedAt: new Date().toISOString(),
+        };
+        return { event, pubKeyHash };
+    };
+
+    it('marks native_script certificate invalid when signing key not in policy', async () => {
+        const store = new InMemoryCertificateStore();
+        const { event } = buildSignedNativeScriptEvent({
+            policyScripts: [`0x${cbor.encode([0, Buffer.from('ff'.repeat(28), 'hex')]).toString('hex')}`],
+        });
+        const results = await ingestProviderEvents([event], store);
+        expect(results[0].ok).toBe(false);
+        const record = (await store.getCertificates())[0];
+        expect(record.status).toBe('invalid');
+        expect(record.validationErrors?.join(' ')).toMatch(/signing key not found/i);
+    });
+
+    it('uses resolver to fetch native script when missing and validates key hash', async () => {
+        const store = new InMemoryCertificateStore();
+        const { event, pubKeyHash } = buildSignedNativeScriptEvent({ policyScripts: [] });
+        const resolver = {
+            fetchNativeScript: jest.fn(async () => cbor.decode(Buffer.from(cbor.encode([0, Buffer.from(pubKeyHash, 'hex')])))),
+        };
+
+        const results = await ingestProviderEvents([event], store, { nativeScriptResolver: resolver });
+        expect(results[0].ok).toBe(true);
+        const record = (await store.getCertificates())[0];
+        expect(record.status).toBe('valid');
+        expect(resolver.fetchNativeScript).toHaveBeenCalled();
+    });
+
+    it('marks native_script certificate unparsed when policy cannot be fetched', async () => {
+        const store = new InMemoryCertificateStore();
+        const { event } = buildSignedNativeScriptEvent({ policyScripts: [] });
+        const resolver = { fetchNativeScript: jest.fn(async () => null) };
+        const results = await ingestProviderEvents([event], store, { nativeScriptResolver: resolver });
+        expect(results[0].ok).toBe(false);
+        const record = (await store.getCertificates())[0];
+        expect(record.status).toBe('unparsed');
+        expect(record.validationErrors?.join(' ')).toMatch(/unavailable/i);
     });
 });

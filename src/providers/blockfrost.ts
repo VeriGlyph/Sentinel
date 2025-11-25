@@ -84,6 +84,18 @@ export class BlockfrostProvider implements ProviderClient {
     return data;
   }
 
+  async fetchNativeScript(policyId: string): Promise<unknown | null> {
+    const url = `${this.baseUrl}/scripts/${policyId}/json`;
+    try {
+      const data = await this.fetchJson<{ script: unknown }>(url);
+      await this.sleep(this.delayMs);
+      return data?.script ?? null;
+    } catch (err: any) {
+      if (err?.status === 404) return null;
+      throw err;
+    }
+  }
+
   async pullSince(checkpoint?: ProviderCheckpoint): Promise<ProviderEvent[]> {
     const page = checkpoint?.cursor ?? 1;
     const items = await this.fetchMetadataPage(page);

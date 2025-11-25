@@ -1,18 +1,77 @@
-import { validateCip88, verifyCip88Signatures } from '../lib/cip88';
+import cbor from 'cbor';
+import { validateCip88, verifyCip88Signatures, getHash } from '../lib/cip88';
 import { CertificateRecord, CertificateStatus } from '../models/certificate';
 import { ProviderEvent } from '../providers/provider';
 import { InMemoryCertificateStore } from './certificate-service';
 import { PgCertificateStore } from './db';
+import { isHex, normalizeHex } from '../lib/hex';
 
 export interface IngestionResult {
   record: CertificateRecord;
   ok: boolean;
 }
 
+export interface NativeScriptResolver {
+  fetchNativeScript(policyId: string): Promise<unknown | null>;
+}
+
 function determineCertificateType(version: number, scopeType: string): string {
   if (version === 2 && scopeType === 'stake_pool') return 'cip-151';
   return 'cip-88';
 }
+
+const normalizePolicyId = (policyId?: string) => (policyId ? normalizeHex(policyId) : undefined);
+
+const tryDecodeCbor = (hex: string): unknown => {
+  try {
+    return cbor.decode(Buffer.from(normalizeHex(hex), 'hex'));
+  } catch {
+    return hex;
+  }
+};
+
+const extractKeyHashes = (script: unknown): string[] => {
+  const hashes: string[] = [];
+  const visit = (node: unknown) => {
+    if (!node && node !== 0) return;
+    if (Buffer.isBuffer(node)) {
+      hashes.push(node.toString('hex'));
+      return;
+    }
+    if (typeof node === 'string') {
+      const norm = normalizeHex(node);
+      hashes.push(norm);
+      if (isHex(norm)) {
+        const decoded = tryDecodeCbor(norm);
+        if (decoded !== norm) visit(decoded);
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    if (typeof node === 'object') {
+      const obj = node as Record<string, unknown>;
+      if (obj.keyHash && typeof obj.keyHash === 'string') hashes.push(normalizeHex(obj.keyHash));
+      if (Array.isArray(obj.scripts)) obj.scripts.forEach(visit);
+      Object.values(obj).forEach(visit);
+    }
+  };
+  visit(script);
+  return hashes;
+};
+
+const containsAnyKeyHash = (scripts: unknown[], targetHashes: string[]): boolean => {
+  const targets = targetHashes.map(normalizeHex);
+  for (const script of scripts) {
+    const hashes = extractKeyHashes(script);
+    if (hashes.some((h) => targets.includes(normalizeHex(h)))) {
+      return true;
+    }
+  }
+  return false;
+};
 
 function normalizeMetadata(event: ProviderEvent): unknown {
   if (event.metadataKey === 867) {
@@ -26,7 +85,8 @@ function normalizeMetadata(event: ProviderEvent): unknown {
 
 export async function ingestProviderEvents(
   events: ProviderEvent[],
-  store: InMemoryCertificateStore | PgCertificateStore
+  store: InMemoryCertificateStore | PgCertificateStore,
+  options?: { nativeScriptResolver?: NativeScriptResolver }
 ): Promise<IngestionResult[]> {
   const results: IngestionResult[] = [];
 
@@ -70,6 +130,29 @@ export async function ingestProviderEvents(
         ingestionErrors.push(...(sigResult.errors || []));
       } else if (sigResult.status === 'unsupported' && status === 'valid') {
         status = 'unparsed';
+      }
+
+      if (
+        status === 'valid' &&
+        validation.data.scope.scopeType === 'native_script' &&
+        signatureVerifiedBy?.length
+      ) {
+        const witnessKeyHashes = signatureVerifiedBy.map((pk) => getHash(normalizeHex(pk), 28));
+        const policyId = normalizePolicyId(validation.data.scope.policyId);
+        let policyScripts: unknown[] = validation.data.scope.policyScripts ?? [];
+
+        if (!policyScripts.length && policyId && options?.nativeScriptResolver) {
+          const fetched = await options.nativeScriptResolver.fetchNativeScript(policyId);
+          if (fetched) policyScripts = [fetched];
+        }
+
+        if (!policyScripts.length) {
+          status = 'unparsed';
+          ingestionErrors.push('native script body unavailable for policy verification');
+        } else if (!containsAnyKeyHash(policyScripts, witnessKeyHashes)) {
+          status = 'invalid';
+          ingestionErrors.push('signing key not found in native script policy');
+        }
       }
     }
 

@@ -31,7 +31,30 @@
             <v-col cols="12" md="6">
               <div><strong>TX:</strong> <a :href="txUrl(certificate.txHash)" target="_blank" rel="noreferrer">{{ certificate.txHash }}</a></div>
               <div><strong>Type:</strong> {{ certificate.certificateType ?? 'unknown' }}</div>
-              <div><strong>Scope ID:</strong> {{ certificate.scopeId ?? 'n/a' }}</div>
+              <div>
+                <strong>Scope ID:</strong>
+                <template v-if="parsed?.scope?.scopeType === 'stake_pool' && normalizePoolId(parsed?.scope?.poolId)">
+                  <a
+                    :href="poolUrl(normalizePoolId(parsed.scope.poolId)!)"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {{ normalizePoolId(parsed.scope.poolId) }}
+                  </a>
+                </template>
+                <template v-else-if="parsed?.scope?.scopeType === 'native_script' && parsed?.scope?.policyId">
+                  <a
+                    :href="policyUrl(normalizePoolId(parsed.scope.policyId)!)"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {{ normalizePoolId(parsed.scope.policyId) }}
+                  </a>
+                </template>
+                <template v-else>
+                  {{ certificate.scopeId ?? 'n/a' }}
+                </template>
+              </div>
               <div><strong>Nonce:</strong> {{ certificate.nonce ?? 'n/a' }}</div>
             </v-col>
             <v-col cols="12" md="6">
@@ -232,4 +255,19 @@ const validationMethodLabel = (method?: number) => {
 };
 
 const formatJson = (data: unknown) => JSON.stringify(data, null, 2);
+
+const normalizePoolId = (poolId: string | undefined) => {
+  if (!poolId) return undefined;
+  return poolId.startsWith('0x') ? poolId.slice(2) : poolId;
+};
+
+const poolUrl = (poolId: string) =>
+  network === 'mainnet'
+    ? `https://cardanoscan.io/pool/${poolId}`
+    : `https://${network}.cardanoscan.io/pool/${poolId}`;
+
+const policyUrl = (policyId: string) =>
+  network === 'mainnet'
+    ? `https://cardanoscan.io/tokenPolicy/${policyId}`
+    : `https://${network}.cardanoscan.io/tokenPolicy/${policyId}`;
 </script>

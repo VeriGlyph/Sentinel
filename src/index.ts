@@ -71,7 +71,7 @@ async function main() {
     try {
       const events = await provider.pullSince(checkpoint);
       if (events.length) {
-        await ingestProviderEvents(events, store);
+        await ingestProviderEvents(events, store, { nativeScriptResolver: provider });
         checkpoint = { cursor: (checkpoint.cursor ?? 1) + 1, lastTxHash: events[events.length - 1].txHash };
         if (useDb) {
           await (store as PgCertificateStore).setCheckpoint(provider.name, checkpoint.cursor!, checkpoint.lastTxHash);
