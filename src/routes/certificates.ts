@@ -11,6 +11,7 @@ export function certificatesRouter(store: InMemoryCertificateStore | PgCertifica
     type: z.string().optional(),
     tx: z.string().optional(),
     provider: z.string().optional(),
+    scopeId: z.string().optional(),
   });
 
   router.get('/', async (req, res) => {
@@ -23,6 +24,7 @@ export function certificatesRouter(store: InMemoryCertificateStore | PgCertifica
       type: parsed.data.type,
       txHash: parsed.data.tx,
       provider: parsed.data.provider,
+      scopeId: parsed.data.scopeId,
     });
     return res.json({ data: records });
   });
