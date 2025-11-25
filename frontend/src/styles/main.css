@@ -1,0 +1,31 @@
+@import 'vuetify/styles';
+
+body {
+  background-color: #0c0f1a;
+  color: #e8ecf1;
+}
+
+.veriglyph-background {
+  background: radial-gradient(circle at 20% 20%, rgba(99, 8, 191, 0.15), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(71, 239, 243, 0.15), transparent 25%),
+    #0c0f1a;
+  min-height: 100vh;
+}
+
+.veriglyph-card {
+  background: #121726;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.veriglyph-gradient-bg {
+  background: linear-gradient(45deg, #6308bf, #47eff3);
+}
+
+pre {
+  background: #0c0f1a;
+  border-radius: 8px;
+  padding: 12px;
+  color: #e8ecf1;
+  overflow: auto;
+}

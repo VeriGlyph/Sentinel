@@ -1,4 +1,2 @@
-.idea
-/backend/node_modules
-/indexer/cursor.txt
-/indexer/daemon.toml
+/node_modules/
+/frontend/node_modules/
