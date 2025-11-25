@@ -38,6 +38,8 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_NETWORK: ${VITE_NETWORK:-preprod}
     restart: unless-stopped
     environment:
       VITE_NETWORK: ${VITE_NETWORK:-preprod}
@@ -55,6 +57,8 @@ services:
   traefik:
     image: traefik:v3.1
     restart: unless-stopped
+    environment:
+      - DOCKER_API_VERSION=1.44
     command:
       - --providers.docker=true
       - --entrypoints.web.address=:80
