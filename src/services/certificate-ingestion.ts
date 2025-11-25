@@ -107,7 +107,8 @@ export async function ingestProviderEvents(
 
     if (validation.ok && validation.data && validation.registrationRaw) {
       // Nonce replay protection
-      const scopeId = validation.data.scope.policyId ?? validation.data.scope.poolId;
+      const scopeIdHex = validation.data.scope.policyId ?? validation.data.scope.poolId;
+      const scopeId = scopeIdHex ? normalizeHex(scopeIdHex) : undefined;
       const incomingNonce = validation.data.nonce;
       if (scopeId && incomingNonce !== undefined) {
         const maxNonce =
@@ -157,7 +158,8 @@ export async function ingestProviderEvents(
     }
 
     const scopeType = validation.data?.scope.scopeType === 'stake_pool' ? 'pool' : 'policy';
-    const scopeId = validation.data?.scope.policyId ?? validation.data?.scope.poolId;
+    const scopeIdHex = validation.data?.scope.policyId ?? validation.data?.scope.poolId;
+    const scopeId = scopeIdHex ? normalizeHex(scopeIdHex) : undefined;
 
     const certificateType = validation.data
       ? determineCertificateType(validation.data.version, validation.data.scope.scopeType)

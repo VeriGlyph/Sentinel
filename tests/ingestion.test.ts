@@ -176,6 +176,7 @@ describe('ingestProviderEvents', () => {
         const record = (await store.getCertificates())[0];
         expect(record.status).toBe('valid');
         expect(resolver.fetchNativeScript).toHaveBeenCalled();
+        expect(record.scopeId?.startsWith('0x')).toBe(false);
     });
 
     it('marks native_script certificate unparsed when policy cannot be fetched', async () => {
