@@ -55,10 +55,10 @@ services:
       - traefik.http.services.front.loadbalancer.server.scheme=http
 
   traefik:
-    image: traefik:v3.1
+    image: traefik:latest
     restart: unless-stopped
     environment:
-      - DOCKER_API_VERSION=1.44
+      - DOCKER_API_VERSION=1.52
     command:
       - --providers.docker=true
       - --entrypoints.web.address=:80
