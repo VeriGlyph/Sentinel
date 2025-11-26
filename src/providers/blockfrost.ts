@@ -79,6 +79,7 @@ export class BlockfrostProvider implements ProviderClient {
 
   private async fetchMetadataPage(page: number): Promise<BlockfrostMetadataItem[]> {
     const url = `${this.baseUrl}/metadata/txs/labels/${this.config.metadataKey}?order=asc&page=${page}&count=${this.config.pageSize}`;
+    console.log(`Fetching metadata page ${page} from ${url}`);
     const data = await this.fetchJson<BlockfrostMetadataItem[]>(url);
     await this.sleep(this.delayMs);
     return data;
