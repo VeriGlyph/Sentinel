@@ -72,12 +72,18 @@ async function main() {
       const events = await provider.pullSince(checkpoint);
       if (events.length) {
         await ingestProviderEvents(events, store, { nativeScriptResolver: provider });
-        checkpoint = { cursor: (checkpoint.cursor ?? 1) + 1, lastTxHash: events[events.length - 1].txHash };
+        const pageSize = provider.getPageSize();
+        const pageFull = events.length >= pageSize;
+        if (pageFull) {
+          checkpoint = { cursor: (checkpoint.cursor ?? 1) + 1, lastTxHash: events[events.length - 1].txHash };
+        } else {
+          checkpoint = { cursor: checkpoint.cursor ?? 1, lastTxHash: events[events.length - 1].txHash };
+        }
         if (useDb) {
           await (store as PgCertificateStore).setCheckpoint(provider.name, checkpoint.cursor!, checkpoint.lastTxHash);
         }
-        logger.info({ page: checkpoint.cursor, count: events.length }, 'ingested provider events');
-        nextPollInterval = basePollIntervalMs;
+        logger.info({ page: checkpoint.cursor, count: events.length, pageFull }, 'ingested provider events');
+        nextPollInterval = pageFull ? basePollIntervalMs : basePollIntervalMs;
       } else {
         nextPollInterval = tipPollIntervalMs;
       }
