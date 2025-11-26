@@ -161,6 +161,15 @@ export async function ingestProviderEvents(
     const scopeIdHex = validation.data?.scope.policyId ?? validation.data?.scope.poolId;
     const scopeId = scopeIdHex ? normalizeHex(scopeIdHex) : undefined;
 
+    // If we've already ingested this tx and scope, skip re-processing to avoid nonce/self-conflicts.
+    if (scopeId) {
+      const existing = await store.getCertificates({ txHash: event.txHash, scopeId });
+      if (existing.length) {
+        results.push({ record: existing[0], ok: existing[0].status === 'valid' });
+        continue;
+      }
+    }
+
     const certificateType = validation.data
       ? determineCertificateType(validation.data.version, validation.data.scope.scopeType)
       : 'unknown';

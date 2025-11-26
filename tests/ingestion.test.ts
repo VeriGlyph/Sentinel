@@ -189,4 +189,19 @@ describe('ingestProviderEvents', () => {
         expect(record.status).toBe('unparsed');
         expect(record.validationErrors?.join(' ')).toMatch(/unavailable/i);
     });
+
+    it('skips re-processing identical tx + scope to avoid nonce self-conflict', async () => {
+        const store = new InMemoryCertificateStore();
+        const { event } = buildSignedNativeScriptEvent();
+        const resolver = { fetchNativeScript: jest.fn(async () => null) };
+        await ingestProviderEvents([event], store, { nativeScriptResolver: resolver });
+        const first = await store.getCertificates();
+        expect(first[0].status).toBe('valid');
+
+        // Re-ingest the exact same event; should not be invalidated.
+        const results = await ingestProviderEvents([event], store, { nativeScriptResolver: resolver });
+        expect(results[0].ok).toBe(true);
+        const after = await store.getCertificates();
+        expect(after[0].status).toBe('valid');
+    });
 });
