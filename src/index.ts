@@ -83,7 +83,8 @@ async function main() {
           await (store as PgCertificateStore).setCheckpoint(provider.name, checkpoint.cursor!, checkpoint.lastTxHash);
         }
         logger.info({ page: checkpoint.cursor, count: events.length, pageFull }, 'ingested provider events');
-        nextPollInterval = pageFull ? basePollIntervalMs : basePollIntervalMs;
+        // When we hit a partial page we are likely near the tip; slow down to avoid burning credits
+        nextPollInterval = pageFull ? basePollIntervalMs : tipPollIntervalMs;
       } else {
         nextPollInterval = tipPollIntervalMs;
       }
